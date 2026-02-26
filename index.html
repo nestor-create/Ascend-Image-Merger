@@ -1,251 +1,65 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Ascend Image Merger – Ultra</title>
+mergeBtn.onclick = async () => {
+  warnEl.textContent = '';
 
-<style>
-body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7f9;color:#111}
-header{padding:16px 24px;background:#fff;border-bottom:1px solid #e5e7eb}
-.header{display:flex;align-items:center;gap:14px}
-.logo{height:36px;border-radius:8px}
-h1{margin:0;font-size:18px}
-.sub{font-size:13px;color:#555;margin-top:4px}
+  const gap = Math.max(0, parseInt(gapEl.value || '0', 10));
+  const bg = safeParseColor((bgEl.value || '#ffffff').trim());
 
-.wrap{max-width:1100px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:360px 1fr;gap:16px}
-@media(max-width:980px){.wrap{grid-template-columns:1fr}}
+  const MIN_HD = 1920;   // minimum HD width
+  const MAX_4K = 3840;   // maximum width cap
 
-.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 3px 12px rgba(0,0,0,.05)}
-.card h2{margin:0;padding:12px 14px;border-bottom:1px solid #eee;font-size:14px;background:#fafafa}
-.content{padding:14px}
+  // Determine target width intelligently
+  const widest = Math.max(...items.map(i => i.w));
 
-.drop{border:2px dashed #cfd3d9;border-radius:14px;padding:18px;text-align:center;background:#fbfbfc;cursor:pointer}
-.drop.dragover{border-color:#111;background:#f0f0f2}
+  let targetWidth;
+  if (widest < MIN_HD) {
+    targetWidth = MIN_HD;        // upscale small images to HD
+  } else if (widest > MAX_4K) {
+    targetWidth = MAX_4K;        // downscale huge images to 4K
+  } else {
+    targetWidth = widest;        // keep natural size
+  }
 
-button{border:1px solid #ddd;background:#fff;padding:9px 12px;border-radius:10px;font-weight:600;cursor:pointer}
-button.primary{background:#111;color:#fff;border-color:#111}
-button:disabled{opacity:.5;cursor:not-allowed}
+  // Scale everything to same width
+  const planned = items.map(it => {
+    const scale = targetWidth / it.w;
+    return {
+      ...it,
+      dw: Math.round(it.w * scale),
+      dh: Math.round(it.h * scale),
+      scale
+    };
+  });
 
-.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  const outW = targetWidth;
+  const outH = planned.reduce((sum, p) => sum + p.dh, 0) + gap * (planned.length - 1);
 
-.list{margin-top:12px;display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto}
-.item{display:grid;grid-template-columns:60px 1fr auto;gap:10px;align-items:center;border:1px solid #eee;border-radius:12px;padding:8px}
-.thumb{width:60px;height:60px;object-fit:cover;border-radius:10px}
+  canvas.width = outW;
+  canvas.height = outH;
 
-.status{font-size:12px;color:#555;margin-top:10px}
-.note{font-size:12px;color:#666;margin-top:6px}
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0,0,outW,outH);
 
-.canvasWrap{margin-top:12px;border:1px solid #eee;border-radius:12px;overflow:auto;max-height:70vh;background:#fff}
-canvas{display:block;max-width:100%}
-</style>
-</head>
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
-<body>
+  let y = 0;
+  for (const p of planned) {
+    ctx.drawImage(p.img, 0, Math.round(y), p.dw, p.dh);
+    y += p.dh + gap;
+  }
 
-<header>
-<div class="header">
-<img src="ascend-logo.png" class="logo"/>
-<div>
-<h1>Ascend Image Merger</h1>
-<div class="sub">Ultra Professional Mode • Smart HD • Perfect Alignment</div>
-</div>
-</div>
-</header>
+  if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+  if (!blob) {
+    warnEl.textContent = 'Export failed.';
+    return;
+  }
 
-<main class="wrap">
+  lastBlobUrl = URL.createObjectURL(blob);
+  openBtn.disabled = false;
+  copyBtn.disabled = false;
 
-<section class="card">
-<h2>Images</h2>
-<div class="content">
-<div id="drop" class="drop">
-<strong>Paste or Drop Images</strong><br/>
-<small>Ctrl+V • Drag files • Click to add</small>
-<input id="fileInput" type="file" accept="image/*" multiple hidden>
-</div>
-
-<div class="btnrow">
-<button id="clearBtn" disabled>Clear</button>
-<button id="mergeBtn" class="primary" disabled>Merge Ultra HD</button>
-<button id="copyBtn" disabled>Copy</button>
-<button id="openBtn" disabled>Open</button>
-</div>
-
-<div id="list" class="list"></div>
-<div id="status" class="status"></div>
-<div id="warn" class="note"></div>
-</div>
-</section>
-
-<section class="card">
-<h2>Preview</h2>
-<div class="content">
-<div class="canvasWrap">
-<canvas id="canvas"></canvas>
-</div>
-</div>
-</section>
-
-</main>
-
-<script>
-const MIN_HD = 1920;
-const MAX_4K = 3840;
-const SAFE_MP = 80;
-
-const drop = document.getElementById('drop');
-const fileInput = document.getElementById('fileInput');
-const clearBtn = document.getElementById('clearBtn');
-const mergeBtn = document.getElementById('mergeBtn');
-const copyBtn = document.getElementById('copyBtn');
-const openBtn = document.getElementById('openBtn');
-const listEl = document.getElementById('list');
-const statusEl = document.getElementById('status');
-const warnEl = document.getElementById('warn');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-
-let items = [];
-let lastBlobUrl = null;
-
-function updateUI(){
-listEl.innerHTML='';
-items.forEach((it,i)=>{
-const row=document.createElement('div');
-row.className='item';
-row.innerHTML=`
-<img src="${it.url}" class="thumb"/>
-<div>${it.name}<br/><small>${it.w} × ${it.h}px</small></div>
-<div><button data-i="${i}">✕</button></div>
-`;
-row.querySelector('button').onclick=()=>removeAt(i);
-listEl.appendChild(row);
-});
-mergeBtn.disabled = items.length < 2;
-clearBtn.disabled = items.length === 0;
-statusEl.textContent = items.length ? `${items.length} images ready.` : '';
-}
-
-function removeAt(i){
-URL.revokeObjectURL(items[i].url);
-items.splice(i,1);
-updateUI();
-}
-
-function clearAll(){
-items.forEach(it=>URL.revokeObjectURL(it.url));
-items=[];
-if(lastBlobUrl)URL.revokeObjectURL(lastBlobUrl);
-canvas.width=canvas.height=0;
-updateUI();
-copyBtn.disabled=true;
-openBtn.disabled=true;
-}
-
-function loadFile(file){
-return new Promise((resolve,reject)=>{
-const url=URL.createObjectURL(file);
-const img=new Image();
-img.onload=()=>resolve({name:file.name,img,w:img.naturalWidth,h:img.naturalHeight,url});
-img.onerror=()=>reject();
-img.src=url;
-});
-}
-
-async function addFiles(files){
-const arr=[...files].filter(f=>f.type.startsWith('image/'));
-if(!arr.length)return;
-const loaded=await Promise.all(arr.map(loadFile));
-items.push(...loaded);
-updateUI();
-}
-
-window.addEventListener('paste',async e=>{
-const dt=e.clipboardData;
-if(!dt)return;
-const files=[];
-for(const item of dt.items){
-if(item.kind==='file'){
-const f=item.getAsFile();
-if(f&&f.type.startsWith('image/'))files.push(f);
-}
-}
-if(files.length){
-e.preventDefault();
-await addFiles(files);
-}
-});
-
-drop.onclick=()=>fileInput.click();
-drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragover')});
-drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));
-drop.addEventListener('drop',async e=>{
-e.preventDefault();
-drop.classList.remove('dragover');
-await addFiles(e.dataTransfer.files);
-});
-fileInput.onchange=()=>addFiles(fileInput.files);
-clearBtn.onclick=clearAll;
-
-mergeBtn.onclick=async()=>{
-warnEl.textContent='';
-
-const widest=Math.max(...items.map(i=>i.w));
-let targetWidth;
-
-if(widest<MIN_HD)targetWidth=MIN_HD;
-else if(widest>MAX_4K)targetWidth=MAX_4K;
-else targetWidth=widest;
-
-const planned=items.map(it=>{
-const scale=targetWidth/it.w;
-return{...it,dw:Math.round(it.w*scale),dh:Math.round(it.h*scale)};
-});
-
-const outW=targetWidth;
-const outH=planned.reduce((s,p)=>s+p.dh,0);
-
-let safetyFactor=1;
-const mp=(outW*outH)/1_000_000;
-if(mp>SAFE_MP)safetyFactor=Math.sqrt(SAFE_MP/mp);
-
-canvas.width=Math.floor(outW*safetyFactor);
-canvas.height=Math.floor(outH*safetyFactor);
-
-ctx.setTransform(1,0,0,1,0,0);
-ctx.fillStyle='#ffffff';
-ctx.fillRect(0,0,canvas.width,canvas.height);
-
-ctx.imageSmoothingEnabled=true;
-ctx.imageSmoothingQuality='high';
-
-ctx.scale(safetyFactor,safetyFactor);
-
-let y=0;
-for(const p of planned){
-ctx.drawImage(p.img,0,Math.round(y),p.dw,p.dh);
-y+=p.dh;
-}
-
-ctx.setTransform(1,0,0,1,0,0);
-
-if(lastBlobUrl)URL.revokeObjectURL(lastBlobUrl);
-const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
-lastBlobUrl=URL.createObjectURL(blob);
-
-copyBtn.disabled=false;
-openBtn.disabled=false;
-
-statusEl.textContent=`Merged: ${canvas.width} × ${canvas.height}px`;
+  const mpFinal = (canvas.width * canvas.height) / 1_000_000;
+  statusEl.textContent = `Merged: ${canvas.width} × ${canvas.height}px (${mpFinal.toFixed(1)} MP) — HD Optimized`;
 };
-
-copyBtn.onclick=async()=>{
-const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
-await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
-};
-
-openBtn.onclick=()=>window.open(lastBlobUrl,'_blank');
-</script>
-
-</body>
-</html>
