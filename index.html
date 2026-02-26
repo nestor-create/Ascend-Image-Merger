@@ -1,65 +1,349 @@
-mergeBtn.onclick = async () => {
-  warnEl.textContent = '';
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ascend Image Merger</title>
 
-  const gap = Math.max(0, parseInt(gapEl.value || '0', 10));
-  const bg = safeParseColor((bgEl.value || '#ffffff').trim());
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#fafafa;color:#111}
+  header{padding:16px 24px;background:#fff;border-bottom:1px solid #e7e7e7;position:sticky;top:0;z-index:10}
+  .header-container{display:flex;align-items:center;gap:14px}
+  .logo{height:36px;width:auto;border-radius:8px}
+  h1{margin:0;font-size:18px}
+  .sub{margin-top:6px;font-size:13px;color:#555}
 
-  const MIN_HD = 1920;   // minimum HD width
-  const MAX_4K = 3840;   // maximum width cap
+  .wrap{max-width:1100px;margin:16px auto;padding:0 16px 24px;display:grid;grid-template-columns:360px 1fr;gap:16px}
+  @media(max-width:980px){.wrap{grid-template-columns:1fr}}
 
-  // Determine target width intelligently
-  const widest = Math.max(...items.map(i => i.w));
+  .card{background:#fff;border:1px solid #e7e7e7;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.04);overflow:hidden}
+  .card h2{margin:0;font-size:14px;padding:12px;border-bottom:1px solid #eee;background:#fcfcfc}
+  .content{padding:12px}
 
-  let targetWidth;
-  if (widest < MIN_HD) {
-    targetWidth = MIN_HD;        // upscale small images to HD
-  } else if (widest > MAX_4K) {
-    targetWidth = MAX_4K;        // downscale huge images to 4K
-  } else {
-    targetWidth = widest;        // keep natural size
+  .drop{border:2px dashed #cfcfcf;border-radius:12px;padding:14px;background:#fbfbfb;text-align:center;min-height:120px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center}
+  .drop.dragover{border-color:#111;background:#f3f3f3}
+
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  button{border:1px solid #ddd;background:#fff;padding:9px 10px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px}
+  button.primary{background:#111;color:#fff;border-color:#111}
+  button:disabled{opacity:.5;cursor:not-allowed}
+
+  label{display:block;font-size:12px;color:#444;margin-top:10px}
+  input[type="number"], input[type="text"]{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:10px;border:1px solid #ddd;font-size:13px;margin-top:6px}
+
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .toggleRow{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+  .toggle{display:flex;gap:8px;align-items:center;font-size:12px;color:#444}
+
+  .list{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto;margin-top:8px}
+  .item{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;border:1px solid #eee;border-radius:12px;padding:8px}
+  .thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;background:#f0f0f0;border:1px solid #eee}
+  .meta{font-size:12px;color:#555}
+  .meta b{display:block;color:#111;font-size:13px;margin-bottom:2px}
+  .actions{display:flex;gap:6px}
+  .actions button{padding:6px 8px;border-radius:10px;font-size:12px}
+
+  .status{font-size:12px;color:#555}
+  .note{font-size:12px;color:#666;margin-top:10px;line-height:1.35}
+  .canvasWrap{margin-top:10px;border:1px solid #eee;border-radius:12px;overflow:auto;background:#fff;max-height:72vh}
+  canvas{display:block;max-width:100%;height:auto}
+  .kbd{font-family:ui-monospace,Menlo,Consolas,monospace;border:1px solid #ddd;border-bottom-width:2px;border-radius:8px;padding:2px 6px;background:#fff;font-size:12px}
+</style>
+</head>
+
+<body>
+<header>
+  <div class="header-container">
+    <img src="ascend-logo.png" alt="Ascend Logo" class="logo">
+    <div>
+      <h1>Ascend Image Merger</h1>
+      <div class="sub">
+        Sharp merge mode • never upscales • paste with <span class="kbd">Ctrl</span>+<span class="kbd">V</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <h2>Input</h2>
+    <div class="content">
+      <div id="drop" class="drop" tabindex="0">
+        <strong>Paste or drop images here</strong>
+        <small>Ctrl+V • or drag files • or Add Images</small>
+        <div class="btnrow">
+          <button id="addBtn" class="primary">Add Images</button>
+          <button id="clearBtn" disabled>Clear</button>
+        </div>
+        <input id="fileInput" type="file" accept="image/*" multiple hidden>
+      </div>
+
+      <label>Images</label>
+      <div id="list" class="list"></div>
+
+      <div class="row">
+        <div>
+          <label>Gap (px)</label>
+          <input id="gap" type="number" min="0" step="1" value="0">
+        </div>
+        <div>
+          <label>Background</label>
+          <input id="bg" type="text" value="#ffffff">
+        </div>
+      </div>
+
+      <div class="toggleRow">
+        <label class="toggle">
+          <input id="cap4k" type="checkbox" checked>
+          Cap width at 4K (downscale only)
+        </label>
+        <label class="toggle">
+          <input id="crispText" type="checkbox" checked>
+          Crisp text (disable smoothing when possible)
+        </label>
+      </div>
+
+      <div class="btnrow" style="margin-top:12px;">
+        <button id="mergeBtn" class="primary" disabled>Merge</button>
+        <button id="copyBtn" disabled>Copy</button>
+        <button id="openBtn" disabled>Open</button>
+      </div>
+
+      <div id="warn" class="note"></div>
+      <div class="note">
+        If you want it as sharp as original: this mode never upscales. For quality check, click <b>Open</b> and view at 100%.
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Preview</h2>
+    <div class="content">
+      <div id="status" class="status">Add images to start.</div>
+      <div class="canvasWrap"><canvas id="canvas"></canvas></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const MAX_4K = 3840;
+  const SAFE_MP = 80;
+
+  const drop=document.getElementById('drop');
+  const fileInput=document.getElementById('fileInput');
+  const addBtn=document.getElementById('addBtn');
+  const clearBtn=document.getElementById('clearBtn');
+  const listEl=document.getElementById('list');
+
+  const gapEl=document.getElementById('gap');
+  const bgEl=document.getElementById('bg');
+  const cap4kEl=document.getElementById('cap4k');
+  const crispTextEl=document.getElementById('crispText');
+
+  const mergeBtn=document.getElementById('mergeBtn');
+  const copyBtn=document.getElementById('copyBtn');
+  const openBtn=document.getElementById('openBtn');
+
+  const statusEl=document.getElementById('status');
+  const warnEl=document.getElementById('warn');
+
+  const canvas=document.getElementById('canvas');
+  const ctx=canvas.getContext('2d');
+
+  let items=[];
+  let lastBlobUrl=null;
+
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  // Scale everything to same width
-  const planned = items.map(it => {
-    const scale = targetWidth / it.w;
-    return {
-      ...it,
-      dw: Math.round(it.w * scale),
-      dh: Math.round(it.h * scale),
-      scale
-    };
+  function safeParseColor(s){
+    const t=document.createElement('canvas').getContext('2d');
+    t.fillStyle='#ffffff';
+    t.fillStyle=s;
+    return t.fillStyle || '#ffffff';
+  }
+
+  function updateUI(){
+    listEl.innerHTML='';
+    items.forEach((it,idx)=>{
+      const row=document.createElement('div');
+      row.className='item';
+      row.innerHTML=`
+        <img src="${it.url}" class="thumb" alt="">
+        <div class="meta"><b>${escapeHtml(it.name)}</b>${it.w} × ${it.h}px</div>
+        <div class="actions">
+          <button ${idx===0?'disabled':''} data-act="up">↑</button>
+          <button ${idx===items.length-1?'disabled':''} data-act="down">↓</button>
+          <button data-act="del">✕</button>
+        </div>`;
+      row.querySelector('[data-act="up"]')?.addEventListener('click',()=>move(idx,idx-1));
+      row.querySelector('[data-act="down"]')?.addEventListener('click',()=>move(idx,idx+1));
+      row.querySelector('[data-act="del"]')?.addEventListener('click',()=>removeAt(idx));
+      listEl.appendChild(row);
+    });
+
+    clearBtn.disabled=!items.length;
+    mergeBtn.disabled=items.length<2;
+    statusEl.textContent=items.length?`${items.length} image(s) loaded.`:'Add images to start.';
+  }
+
+  function move(from,to){
+    const a=items.splice(from,1)[0];
+    items.splice(to,0,a);
+    updateUI();
+  }
+
+  function removeAt(i){
+    URL.revokeObjectURL(items[i].url);
+    items.splice(i,1);
+    updateUI();
+  }
+
+  function clearAll(){
+    items.forEach(it=>URL.revokeObjectURL(it.url));
+    items=[];
+    if(lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+    lastBlobUrl=null;
+    canvas.width=canvas.height=0;
+    openBtn.disabled=true;
+    copyBtn.disabled=true;
+    warnEl.textContent='';
+    updateUI();
+  }
+
+  function loadFile(file){
+    return new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(file);
+      const img=new Image();
+      img.onload=()=>resolve({name:file.name||'image',img,w:img.naturalWidth,h:img.naturalHeight,url});
+      img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('load failed'))};
+      img.src=url;
+    });
+  }
+
+  async function addFiles(files){
+    const arr=Array.from(files).filter(f=>f.type&&f.type.startsWith('image/'));
+    if(!arr.length) return;
+    const loaded=await Promise.all(arr.map(loadFile));
+    items.push(...loaded);
+    updateUI();
+  }
+
+  window.addEventListener('paste',async(e)=>{
+    const dt=e.clipboardData; if(!dt) return;
+    const files=[];
+    for(const item of dt.items){
+      if(item.kind==='file'){
+        const f=item.getAsFile();
+        if(f&&f.type&&f.type.startsWith('image/')) files.push(f);
+      }
+    }
+    if(files.length){ e.preventDefault(); await addFiles(files); }
   });
 
-  const outW = targetWidth;
-  const outH = planned.reduce((sum, p) => sum + p.dh, 0) + gap * (planned.length - 1);
+  drop.addEventListener('dragover',(e)=>{e.preventDefault();drop.classList.add('dragover');});
+  drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));
+  drop.addEventListener('drop',async(e)=>{
+    e.preventDefault(); drop.classList.remove('dragover');
+    if(e.dataTransfer?.files?.length) await addFiles(e.dataTransfer.files);
+  });
 
-  canvas.width = outW;
-  canvas.height = outH;
+  addBtn.onclick=()=>fileInput.click();
+  fileInput.onchange=()=>{ addFiles(fileInput.files); fileInput.value=''; };
+  clearBtn.onclick=clearAll;
 
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0,0,outW,outH);
+  // SHARP MERGE: never upscale. Optional 4K cap (downscale only).
+  mergeBtn.onclick=async()=>{
+    warnEl.textContent='';
 
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+    const gap=Math.max(0,parseInt(gapEl.value||'0',10));
+    const bg=safeParseColor((bgEl.value||'#ffffff').trim());
+    const cap4k=!!cap4kEl.checked;
+    const crisp=!!crispTextEl.checked;
 
-  let y = 0;
-  for (const p of planned) {
-    ctx.drawImage(p.img, 0, Math.round(y), p.dw, p.dh);
-    y += p.dh + gap;
-  }
+    // Determine output width:
+    // - widest original
+    // - but if cap4k and widest > 4K, we downscale ALL by same factor to 4K
+    const widestOrig=Math.max(...items.map(i=>i.w));
+    const globalDown = (cap4k && widestOrig > MAX_4K) ? (MAX_4K / widestOrig) : 1;
 
-  if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
-  const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-  if (!blob) {
-    warnEl.textContent = 'Export failed.';
-    return;
-  }
+    // planned sizes (NEVER upscale)
+    const planned = items.map(it=>{
+      const s = globalDown; // <= 1 always
+      return {
+        ...it,
+        dw: Math.round(it.w * s),
+        dh: Math.round(it.h * s)
+      };
+    });
 
-  lastBlobUrl = URL.createObjectURL(blob);
-  openBtn.disabled = false;
-  copyBtn.disabled = false;
+    const outW = Math.max(...planned.map(p=>p.dw)); // auto-fit: no extra right space
+    const outH = planned.reduce((sum,p)=>sum+p.dh,0) + gap*(planned.length-1);
 
-  const mpFinal = (canvas.width * canvas.height) / 1_000_000;
-  statusEl.textContent = `Merged: ${canvas.width} × ${canvas.height}px (${mpFinal.toFixed(1)} MP) — HD Optimized`;
-};
+    // Safety downscale if extremely huge (rare)
+    let safety=1;
+    const mp=(outW*outH)/1_000_000;
+    if(mp>SAFE_MP) safety=Math.sqrt(SAFE_MP/mp);
+
+    canvas.width = Math.max(1, Math.floor(outW*safety));
+    canvas.height = Math.max(1, Math.floor(outH*safety));
+
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle=bg;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // “Crisp text”: if we are NOT scaling (globalDown==1 and safety==1), disable smoothing entirely
+    const scalingHappens = (globalDown !== 1) || (safety !== 1);
+    ctx.imageSmoothingEnabled = crisp ? scalingHappens : true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.scale(safety,safety);
+
+    let y=0;
+    for(const p of planned){
+      ctx.drawImage(p.img, 0, Math.round(y), p.dw, p.dh); // left aligned, pixel-snapped y
+      y += p.dh + gap;
+    }
+    ctx.setTransform(1,0,0,1,0,0);
+
+    if(lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+    const blob = await new Promise(res=>canvas.toBlob(res,'image/png'));
+    if(!blob){ warnEl.textContent='Export failed. Try fewer images.'; return; }
+    lastBlobUrl = URL.createObjectURL(blob);
+
+    openBtn.disabled=false;
+
+    if(!navigator.clipboard || !window.ClipboardItem){
+      copyBtn.disabled=true; copyBtn.textContent='Copy not supported';
+    }else{
+      copyBtn.disabled=false; copyBtn.textContent='Copy';
+    }
+
+    const mpFinal=(canvas.width*canvas.height)/1_000_000;
+    statusEl.textContent=`Merged: ${canvas.width} × ${canvas.height}px (${mpFinal.toFixed(1)} MP)`;
+    const msgs=[];
+    if(globalDown!==1) msgs.push('Downscaled to 4K cap.');
+    if(safety!==1) msgs.push('Safety downscale applied.');
+    if(!msgs.length) msgs.push('No scaling applied (max sharpness).');
+    warnEl.textContent=msgs.join(' ');
+  };
+
+  copyBtn.onclick=async()=>{
+    try{
+      if(!navigator.clipboard || !window.ClipboardItem) return;
+      const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      warnEl.textContent='Copied ✅';
+      setTimeout(()=>warnEl.textContent='',1500);
+    }catch{
+      warnEl.textContent='Copy failed. Use Open then copy from new tab.';
+    }
+  };
+
+  openBtn.onclick=()=>{ if(lastBlobUrl) window.open(lastBlobUrl,'_blank','noopener,noreferrer'); };
+
+  updateUI();
+</script>
+</body>
+</html>
