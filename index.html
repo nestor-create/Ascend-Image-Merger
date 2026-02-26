@@ -1,322 +1,251 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ascend Image Merger</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Ascend Image Merger – Ultra</title>
 
 <style>
-  body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#fafafa;color:#111}
-  header{padding:16px 24px;background:#fff;border-bottom:1px solid #e7e7e7;position:sticky;top:0;z-index:10}
-  .header-container{display:flex;align-items:center;gap:14px}
-  .logo{height:36px;width:auto;border-radius:8px}
-  h1{margin:0;font-size:18px}
-  .sub{margin-top:6px;font-size:13px;color:#555}
-  .wrap{max-width:1100px;margin:16px auto;padding:0 16px 24px;display:grid;grid-template-columns:360px 1fr;gap:16px}
-  @media(max-width:980px){.wrap{grid-template-columns:1fr}}
-  .card{background:#fff;border:1px solid #e7e7e7;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.04);overflow:hidden}
-  .card h2{margin:0;font-size:14px;padding:12px;border-bottom:1px solid #eee;background:#fcfcfc}
-  .content{padding:12px}
-  .drop{border:2px dashed #cfcfcf;border-radius:12px;padding:14px;background:#fbfbfb;text-align:center;min-height:120px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center}
-  .drop.dragover{border-color:#111;background:#f3f3f3}
-  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  button{border:1px solid #ddd;background:#fff;padding:9px 10px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px}
-  button.primary{background:#111;color:#fff;border-color:#111}
-  button:disabled{opacity:.5;cursor:not-allowed}
-  label{display:block;font-size:12px;color:#444;margin-top:10px}
-  input[type="number"], input[type="text"]{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:10px;border:1px solid #ddd;font-size:13px;margin-top:6px}
-  .list{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto;margin-top:8px}
-  .item{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;border:1px solid #eee;border-radius:12px;padding:8px}
-  .thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;background:#f0f0f0;border:1px solid #eee}
-  .meta{font-size:12px;color:#555}
-  .meta b{display:block;color:#111;font-size:13px;margin-bottom:2px}
-  .actions{display:flex;gap:6px}
-  .actions button{padding:6px 8px;border-radius:10px;font-size:12px}
-  .status{font-size:12px;color:#555}
-  .note{font-size:12px;color:#666;margin-top:10px;line-height:1.35}
-  .canvasWrap{margin-top:10px;border:1px solid #eee;border-radius:12px;overflow:auto;background:#fff;max-height:72vh}
-  canvas{display:block;max-width:100%;height:auto}
-  .kbd{font-family:ui-monospace,Menlo,Consolas,monospace;border:1px solid #ddd;border-bottom-width:2px;border-radius:8px;padding:2px 6px;background:#fff;font-size:12px}
+body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7f9;color:#111}
+header{padding:16px 24px;background:#fff;border-bottom:1px solid #e5e7eb}
+.header{display:flex;align-items:center;gap:14px}
+.logo{height:36px;border-radius:8px}
+h1{margin:0;font-size:18px}
+.sub{font-size:13px;color:#555;margin-top:4px}
+
+.wrap{max-width:1100px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:360px 1fr;gap:16px}
+@media(max-width:980px){.wrap{grid-template-columns:1fr}}
+
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 3px 12px rgba(0,0,0,.05)}
+.card h2{margin:0;padding:12px 14px;border-bottom:1px solid #eee;font-size:14px;background:#fafafa}
+.content{padding:14px}
+
+.drop{border:2px dashed #cfd3d9;border-radius:14px;padding:18px;text-align:center;background:#fbfbfc;cursor:pointer}
+.drop.dragover{border-color:#111;background:#f0f0f2}
+
+button{border:1px solid #ddd;background:#fff;padding:9px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+button.primary{background:#111;color:#fff;border-color:#111}
+button:disabled{opacity:.5;cursor:not-allowed}
+
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+
+.list{margin-top:12px;display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto}
+.item{display:grid;grid-template-columns:60px 1fr auto;gap:10px;align-items:center;border:1px solid #eee;border-radius:12px;padding:8px}
+.thumb{width:60px;height:60px;object-fit:cover;border-radius:10px}
+
+.status{font-size:12px;color:#555;margin-top:10px}
+.note{font-size:12px;color:#666;margin-top:6px}
+
+.canvasWrap{margin-top:12px;border:1px solid #eee;border-radius:12px;overflow:auto;max-height:70vh;background:#fff}
+canvas{display:block;max-width:100%}
 </style>
 </head>
 
 <body>
+
 <header>
-  <div class="header-container">
-    <img src="ascend-logo.png" alt="Ascend Logo" class="logo">
-    <div>
-      <h1>Ascend Image Merger</h1>
-      <div class="sub">
-        Vertical merge • auto-fit width (no extra space) • paste with <span class="kbd">Ctrl</span>+<span class="kbd">V</span>.
-      </div>
-    </div>
-  </div>
+<div class="header">
+<img src="ascend-logo.png" class="logo"/>
+<div>
+<h1>Ascend Image Merger</h1>
+<div class="sub">Ultra Professional Mode • Smart HD • Perfect Alignment</div>
+</div>
+</div>
 </header>
 
 <main class="wrap">
-  <section class="card">
-    <h2>Input</h2>
-    <div class="content">
-      <div id="drop" class="drop" tabindex="0">
-        <strong>Paste or drop images here</strong>
-        <small>Ctrl+V • or drag files • or Add Images</small>
-        <div class="btnrow">
-          <button id="addBtn" class="primary">Add Images</button>
-          <button id="clearBtn" disabled>Clear</button>
-        </div>
-        <input id="fileInput" type="file" accept="image/*" multiple hidden>
-      </div>
 
-      <label>Images</label>
-      <div id="list" class="list"></div>
+<section class="card">
+<h2>Images</h2>
+<div class="content">
+<div id="drop" class="drop">
+<strong>Paste or Drop Images</strong><br/>
+<small>Ctrl+V • Drag files • Click to add</small>
+<input id="fileInput" type="file" accept="image/*" multiple hidden>
+</div>
 
-      <label>Gap (px)</label>
-      <input id="gap" type="number" min="0" step="1" value="0">
+<div class="btnrow">
+<button id="clearBtn" disabled>Clear</button>
+<button id="mergeBtn" class="primary" disabled>Merge Ultra HD</button>
+<button id="copyBtn" disabled>Copy</button>
+<button id="openBtn" disabled>Open</button>
+</div>
 
-      <label>Background</label>
-      <input id="bg" type="text" value="#ffffff">
+<div id="list" class="list"></div>
+<div id="status" class="status"></div>
+<div id="warn" class="note"></div>
+</div>
+</section>
 
-      <div class="btnrow" style="margin-top:12px;">
-        <button id="mergeBtn" class="primary" disabled>Merge</button>
-        <button id="copyBtn" disabled>Copy</button>
-        <button id="openBtn" disabled>Open</button>
-      </div>
+<section class="card">
+<h2>Preview</h2>
+<div class="content">
+<div class="canvasWrap">
+<canvas id="canvas"></canvas>
+</div>
+</div>
+</section>
 
-      <div id="warn" class="note"></div>
-      <div class="note">
-        If your images are different widths, the output will fit the widest one and left-align everything (no right-side blank).
-      </div>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Preview</h2>
-    <div class="content">
-      <div id="status" class="status">Add images to start.</div>
-      <div class="canvasWrap"><canvas id="canvas"></canvas></div>
-    </div>
-  </section>
 </main>
 
 <script>
-  const SAFE_MP = 80; // slightly higher because we are not forcing 4K width anymore
+const MIN_HD = 1920;
+const MAX_4K = 3840;
+const SAFE_MP = 80;
 
-  const drop = document.getElementById('drop');
-  const fileInput = document.getElementById('fileInput');
-  const addBtn = document.getElementById('addBtn');
-  const clearBtn = document.getElementById('clearBtn');
-  const listEl = document.getElementById('list');
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const clearBtn = document.getElementById('clearBtn');
+const mergeBtn = document.getElementById('mergeBtn');
+const copyBtn = document.getElementById('copyBtn');
+const openBtn = document.getElementById('openBtn');
+const listEl = document.getElementById('list');
+const statusEl = document.getElementById('status');
+const warnEl = document.getElementById('warn');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
 
-  const gapEl = document.getElementById('gap');
-  const bgEl = document.getElementById('bg');
+let items = [];
+let lastBlobUrl = null;
 
-  const mergeBtn = document.getElementById('mergeBtn');
-  const copyBtn = document.getElementById('copyBtn');
-  const openBtn = document.getElementById('openBtn');
+function updateUI(){
+listEl.innerHTML='';
+items.forEach((it,i)=>{
+const row=document.createElement('div');
+row.className='item';
+row.innerHTML=`
+<img src="${it.url}" class="thumb"/>
+<div>${it.name}<br/><small>${it.w} × ${it.h}px</small></div>
+<div><button data-i="${i}">✕</button></div>
+`;
+row.querySelector('button').onclick=()=>removeAt(i);
+listEl.appendChild(row);
+});
+mergeBtn.disabled = items.length < 2;
+clearBtn.disabled = items.length === 0;
+statusEl.textContent = items.length ? `${items.length} images ready.` : '';
+}
 
-  const statusEl = document.getElementById('status');
-  const warnEl = document.getElementById('warn');
+function removeAt(i){
+URL.revokeObjectURL(items[i].url);
+items.splice(i,1);
+updateUI();
+}
 
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
+function clearAll(){
+items.forEach(it=>URL.revokeObjectURL(it.url));
+items=[];
+if(lastBlobUrl)URL.revokeObjectURL(lastBlobUrl);
+canvas.width=canvas.height=0;
+updateUI();
+copyBtn.disabled=true;
+openBtn.disabled=true;
+}
 
-  let items = [];
-  let lastBlobUrl = null;
+function loadFile(file){
+return new Promise((resolve,reject)=>{
+const url=URL.createObjectURL(file);
+const img=new Image();
+img.onload=()=>resolve({name:file.name,img,w:img.naturalWidth,h:img.naturalHeight,url});
+img.onerror=()=>reject();
+img.src=url;
+});
+}
 
-  function escapeHtml(s){
-    return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
+async function addFiles(files){
+const arr=[...files].filter(f=>f.type.startsWith('image/'));
+if(!arr.length)return;
+const loaded=await Promise.all(arr.map(loadFile));
+items.push(...loaded);
+updateUI();
+}
 
-  function updateUI(){
-    listEl.innerHTML = '';
-    items.forEach((it, idx) => {
-      const row = document.createElement('div');
-      row.className = 'item';
-      row.innerHTML = `
-        <img src="${it.url}" class="thumb" alt="">
-        <div class="meta"><b>${escapeHtml(it.name)}</b>${it.w} × ${it.h}px</div>
-        <div class="actions">
-          <button ${idx===0?'disabled':''} data-act="up">↑</button>
-          <button ${idx===items.length-1?'disabled':''} data-act="down">↓</button>
-          <button data-act="del">✕</button>
-        </div>
-      `;
-      row.querySelector('[data-act="up"]')?.addEventListener('click', () => move(idx, idx-1));
-      row.querySelector('[data-act="down"]')?.addEventListener('click', () => move(idx, idx+1));
-      row.querySelector('[data-act="del"]')?.addEventListener('click', () => removeAt(idx));
-      listEl.appendChild(row);
-    });
+window.addEventListener('paste',async e=>{
+const dt=e.clipboardData;
+if(!dt)return;
+const files=[];
+for(const item of dt.items){
+if(item.kind==='file'){
+const f=item.getAsFile();
+if(f&&f.type.startsWith('image/'))files.push(f);
+}
+}
+if(files.length){
+e.preventDefault();
+await addFiles(files);
+}
+});
 
-    clearBtn.disabled = items.length === 0;
-    mergeBtn.disabled = items.length < 2;
-    statusEl.textContent = items.length ? `${items.length} image(s) loaded.` : 'Add images to start.';
-  }
+drop.onclick=()=>fileInput.click();
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragover')});
+drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));
+drop.addEventListener('drop',async e=>{
+e.preventDefault();
+drop.classList.remove('dragover');
+await addFiles(e.dataTransfer.files);
+});
+fileInput.onchange=()=>addFiles(fileInput.files);
+clearBtn.onclick=clearAll;
 
-  function move(from, to){
-    const a = items.splice(from,1)[0];
-    items.splice(to,0,a);
-    updateUI();
-  }
+mergeBtn.onclick=async()=>{
+warnEl.textContent='';
 
-  function removeAt(i){
-    URL.revokeObjectURL(items[i].url);
-    items.splice(i,1);
-    updateUI();
-  }
+const widest=Math.max(...items.map(i=>i.w));
+let targetWidth;
 
-  function clearAll(){
-    items.forEach(it => URL.revokeObjectURL(it.url));
-    items = [];
-    if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
-    lastBlobUrl = null;
-    canvas.width = canvas.height = 0;
-    openBtn.disabled = true;
-    copyBtn.disabled = true;
-    warnEl.textContent = '';
-    updateUI();
-  }
+if(widest<MIN_HD)targetWidth=MIN_HD;
+else if(widest>MAX_4K)targetWidth=MAX_4K;
+else targetWidth=widest;
 
-  function safeParseColor(s){
-    const t = document.createElement('canvas').getContext('2d');
-    t.fillStyle = '#ffffff';
-    t.fillStyle = s;
-    return t.fillStyle || '#ffffff';
-  }
+const planned=items.map(it=>{
+const scale=targetWidth/it.w;
+return{...it,dw:Math.round(it.w*scale),dh:Math.round(it.h*scale)};
+});
 
-  function loadFile(file){
-    return new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => resolve({ name: file.name || 'image', img, w: img.naturalWidth, h: img.naturalHeight, url });
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load failed')); };
-      img.src = url;
-    });
-  }
+const outW=targetWidth;
+const outH=planned.reduce((s,p)=>s+p.dh,0);
 
-  async function addFiles(files){
-    const arr = Array.from(files).filter(f => f.type && f.type.startsWith('image/'));
-    if (!arr.length) return;
-    const loaded = await Promise.all(arr.map(loadFile));
-    items.push(...loaded);
-    updateUI();
-  }
+let safetyFactor=1;
+const mp=(outW*outH)/1_000_000;
+if(mp>SAFE_MP)safetyFactor=Math.sqrt(SAFE_MP/mp);
 
-  window.addEventListener('paste', async (e) => {
-    const dt = e.clipboardData;
-    if (!dt) return;
-    const files = [];
-    for (const item of dt.items) {
-      if (item.kind === 'file') {
-        const f = item.getAsFile();
-        if (f && f.type && f.type.startsWith('image/')) files.push(f);
-      }
-    }
-    if (files.length) {
-      e.preventDefault();
-      await addFiles(files);
-    }
-  });
+canvas.width=Math.floor(outW*safetyFactor);
+canvas.height=Math.floor(outH*safetyFactor);
 
-  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragover'); });
-  drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
-  drop.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    drop.classList.remove('dragover');
-    if (e.dataTransfer?.files?.length) await addFiles(e.dataTransfer.files);
-  });
+ctx.setTransform(1,0,0,1,0,0);
+ctx.fillStyle='#ffffff';
+ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  drop.addEventListener('click', () => drop.focus());
-  addBtn.onclick = () => fileInput.click();
-  fileInput.onchange = async () => {
-    if (fileInput.files?.length) await addFiles(fileInput.files);
-    fileInput.value = '';
-  };
-  clearBtn.onclick = clearAll;
+ctx.imageSmoothingEnabled=true;
+ctx.imageSmoothingQuality='high';
 
-  // ---- MERGE (Vertical Only, AUTO-FIT WIDTH, LEFT-ALIGNED) ----
-  mergeBtn.onclick = async () => {
-    warnEl.textContent = '';
+ctx.scale(safetyFactor,safetyFactor);
 
-    const gap = Math.max(0, parseInt(gapEl.value || '0', 10));
-    const bg = safeParseColor((bgEl.value || '#ffffff').trim());
+let y=0;
+for(const p of planned){
+ctx.drawImage(p.img,0,Math.round(y),p.dw,p.dh);
+y+=p.dh;
+}
 
-    // Do NOT upscale. Just use original sizes.
-    const planned = items.map(it => ({ ...it, dw: it.w, dh: it.h }));
+ctx.setTransform(1,0,0,1,0,0);
 
-    // Auto-fit width to widest image
-    const outW = Math.max(...planned.map(p => p.dw));
-    const outH = planned.reduce((sum, p) => sum + p.dh, 0) + gap * (planned.length - 1);
+if(lastBlobUrl)URL.revokeObjectURL(lastBlobUrl);
+const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
+lastBlobUrl=URL.createObjectURL(blob);
 
-    // Safety: cap megapixels if huge
-    let safetyFactor = 1;
-    const mp = (outW * outH) / 1_000_000;
-    if (mp > SAFE_MP) safetyFactor = Math.sqrt(SAFE_MP / mp);
+copyBtn.disabled=false;
+openBtn.disabled=false;
 
-    const finalW = Math.max(1, Math.floor(outW * safetyFactor));
-    const finalH = Math.max(1, Math.floor(outH * safetyFactor));
+statusEl.textContent=`Merged: ${canvas.width} × ${canvas.height}px`;
+};
 
-    canvas.width = finalW;
-    canvas.height = finalH;
+copyBtn.onclick=async()=>{
+const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
+await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+};
 
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.fillStyle = bg;
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    // Only smooth when scaling happens
-    ctx.imageSmoothingEnabled = (safetyFactor !== 1);
-    ctx.imageSmoothingQuality = 'high';
-
-    ctx.scale(safetyFactor, safetyFactor);
-
-    let y = 0;
-    for (const p of planned) {
-      const x = 0; // LEFT ALIGN
-      ctx.drawImage(p.img, 0, Math.round(y), p.dw, p.dh);
-      y += p.dh + gap;
-    }
-
-    ctx.setTransform(1,0,0,1,0,0);
-
-    if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
-    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-    if (!blob) {
-      warnEl.textContent = 'Export failed. Try fewer images.';
-      return;
-    }
-    lastBlobUrl = URL.createObjectURL(blob);
-    openBtn.disabled = false;
-
-    if (!navigator.clipboard || !window.ClipboardItem) {
-      copyBtn.disabled = true;
-      copyBtn.textContent = 'Copy not supported';
-    } else {
-      copyBtn.disabled = false;
-      copyBtn.textContent = 'Copy';
-    }
-
-    const mpFinal = (canvas.width * canvas.height) / 1_000_000;
-    statusEl.textContent = `Merged: ${canvas.width} × ${canvas.height}px (${mpFinal.toFixed(1)} MP)`;
-    if (safetyFactor < 1) warnEl.textContent = `Safety downscale applied (~${SAFE_MP}MP cap).`;
-  };
-
-  copyBtn.onclick = async () => {
-    try {
-      if (!navigator.clipboard || !window.ClipboardItem) return;
-      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      warnEl.textContent = 'Copied ✅';
-      setTimeout(() => warnEl.textContent = '', 1500);
-    } catch {
-      warnEl.textContent = 'Copy failed. Use “Open” then copy from the new tab.';
-    }
-  };
-
-  openBtn.onclick = () => {
-    if (!lastBlobUrl) return;
-    window.open(lastBlobUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  updateUI();
+openBtn.onclick=()=>window.open(lastBlobUrl,'_blank');
 </script>
+
 </body>
 </html>
