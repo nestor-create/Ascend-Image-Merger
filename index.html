@@ -29,7 +29,10 @@
   button:disabled{opacity:.5;cursor:not-allowed}
 
   label{display:block;font-size:12px;color:#444;margin-top:10px}
-  input[type="number"], input[type="text"]{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:10px;border:1px solid #ddd;font-size:13px;margin-top:6px}
+  input[type="number"], input[type="text"], select{
+    width:100%;box-sizing:border-box;padding:9px 10px;border-radius:10px;border:1px solid #ddd;
+    font-size:13px;margin-top:6px;background:#fff
+  }
 
   .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .toggleRow{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
@@ -48,6 +51,8 @@
   .canvasWrap{margin-top:10px;border:1px solid #eee;border-radius:12px;overflow:auto;background:#fff;max-height:72vh}
   canvas{display:block;max-width:100%;height:auto}
   .kbd{font-family:ui-monospace,Menlo,Consolas,monospace;border:1px solid #ddd;border-bottom-width:2px;border-radius:8px;padding:2px 6px;background:#fff;font-size:12px}
+
+  #exportCanvas{display:none}
 </style>
 </head>
 
@@ -58,7 +63,7 @@
     <div>
       <h1>Ascend Image Merger</h1>
       <div class="sub">
-        Sharp merge mode • never upscales • paste with <span class="kbd">Ctrl</span>+<span class="kbd">V</span>
+        Auto-align content • retina preview • paste with <span class="kbd">Ctrl</span>+<span class="kbd">V</span>
       </div>
     </div>
   </div>
@@ -92,7 +97,26 @@
         </div>
       </div>
 
+      <div class="row">
+        <div>
+          <label>Alignment</label>
+          <select id="align">
+            <option value="left">Left (best for lines)</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+        <div>
+          <label>Trim tolerance (0–40)</label>
+          <input id="trimTol" type="number" min="0" max="40" step="1" value="12">
+        </div>
+      </div>
+
       <div class="toggleRow">
+        <label class="toggle">
+          <input id="autoTrim" type="checkbox" checked>
+          Auto align content (trim margins)
+        </label>
         <label class="toggle">
           <input id="cap4k" type="checkbox" checked>
           Cap width at 4K (downscale only)
@@ -100,6 +124,10 @@
         <label class="toggle">
           <input id="crispText" type="checkbox" checked>
           Crisp text (disable smoothing when possible)
+        </label>
+        <label class="toggle">
+          <input id="retinaPreview" type="checkbox" checked>
+          Retina preview
         </label>
       </div>
 
@@ -111,7 +139,7 @@
 
       <div id="warn" class="note"></div>
       <div class="note">
-        If you want it as sharp as original: this mode never upscales. For quality check, click <b>Open</b> and view at 100%.
+        If images have extra white space/margins, enable <b>Auto align content</b> so all content lines up.
       </div>
     </div>
   </section>
@@ -120,7 +148,10 @@
     <h2>Preview</h2>
     <div class="content">
       <div id="status" class="status">Add images to start.</div>
-      <div class="canvasWrap"><canvas id="canvas"></canvas></div>
+      <div class="canvasWrap">
+        <canvas id="canvas"></canvas>
+        <canvas id="exportCanvas"></canvas>
+      </div>
     </div>
   </section>
 </main>
@@ -137,8 +168,13 @@
 
   const gapEl=document.getElementById('gap');
   const bgEl=document.getElementById('bg');
+  const alignEl=document.getElementById('align');
+  const autoTrimEl=document.getElementById('autoTrim');
+  const trimTolEl=document.getElementById('trimTol');
+
   const cap4kEl=document.getElementById('cap4k');
   const crispTextEl=document.getElementById('crispText');
+  const retinaEl=document.getElementById('retinaPreview');
 
   const mergeBtn=document.getElementById('mergeBtn');
   const copyBtn=document.getElementById('copyBtn');
@@ -148,7 +184,9 @@
   const warnEl=document.getElementById('warn');
 
   const canvas=document.getElementById('canvas');
-  const ctx=canvas.getContext('2d');
+  const exportCanvas=document.getElementById('exportCanvas');
+  const pctx=canvas.getContext('2d');
+  const ectx=exportCanvas.getContext('2d');
 
   let items=[];
   let lastBlobUrl=null;
@@ -206,6 +244,7 @@
     if(lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
     lastBlobUrl=null;
     canvas.width=canvas.height=0;
+    exportCanvas.width=exportCanvas.height=0;
     openBtn.disabled=true;
     copyBtn.disabled=true;
     warnEl.textContent='';
@@ -253,86 +292,216 @@
   fileInput.onchange=()=>{ addFiles(fileInput.files); fileInput.value=''; };
   clearBtn.onclick=clearAll;
 
-  // SHARP MERGE: never upscale. Optional 4K cap (downscale only).
+  function renderPreviewFromExport(outW, outH){
+    const retina = !!retinaEl.checked;
+    const dpr = retina ? (window.devicePixelRatio || 1) : 1;
+
+    canvas.style.width = outW + 'px';
+    canvas.style.height = outH + 'px';
+
+    canvas.width = Math.max(1, Math.floor(outW * dpr));
+    canvas.height = Math.max(1, Math.floor(outH * dpr));
+
+    pctx.setTransform(1,0,0,1,0,0);
+    pctx.clearRect(0,0,canvas.width,canvas.height);
+
+    pctx.imageSmoothingEnabled = true;
+    pctx.imageSmoothingQuality = 'high';
+    pctx.setTransform(dpr,0,0,dpr,0,0);
+    pctx.drawImage(exportCanvas, 0, 0);
+    pctx.setTransform(1,0,0,1,0,0);
+  }
+
+  // --- AUTO TRIM (align content) ---
+  // Trims borders that match "bgColor" (or top-left pixel if bgColor invalid), with tolerance.
+  function trimToContent(imgCanvas, bgColor, tol){
+    const w = imgCanvas.width, h = imgCanvas.height;
+    const tctx = imgCanvas.getContext('2d');
+    const data = tctx.getImageData(0,0,w,h).data;
+
+    // Use top-left pixel as fallback background sample (works for screenshots with white/solid margins)
+    const tl = [data[0], data[1], data[2], data[3]];
+
+    function hexToRGBA(hex){
+      const m = (hex||'').trim().match(/^#?([0-9a-f]{6})$/i);
+      if(!m) return null;
+      const v = m[1];
+      return [parseInt(v.slice(0,2),16), parseInt(v.slice(2,4),16), parseInt(v.slice(4,6),16), 255];
+    }
+    const bg = hexToRGBA(bgColor) || tl;
+
+    const step = Math.max(1, Math.floor(Math.min(w,h)/600)); // speed on large images
+    const tol2 = Math.max(0, Math.min(40, tol|0));
+
+    function isBg(i){
+      const r=data[i], g=data[i+1], b=data[i+2], a=data[i+3];
+      // treat near-transparent as background
+      if(a < 16) return true;
+      return (Math.abs(r-bg[0])<=tol2 && Math.abs(g-bg[1])<=tol2 && Math.abs(b-bg[2])<=tol2);
+    }
+
+    let top=0, left=0, right=w-1, bottom=h-1;
+
+    // top
+    topScan:
+    for(let y=0;y<h;y+=step){
+      for(let x=0;x<w;x+=step){
+        const i=(y*w+x)*4;
+        if(!isBg(i)){ top=y; break topScan; }
+      }
+    }
+    // bottom
+    bottomScan:
+    for(let y=h-1;y>=0;y-=step){
+      for(let x=0;x<w;x+=step){
+        const i=(y*w+x)*4;
+        if(!isBg(i)){ bottom=y; break bottomScan; }
+      }
+    }
+    // left
+    leftScan:
+    for(let x=0;x<w;x+=step){
+      for(let y=top;y<=bottom;y+=step){
+        const i=(y*w+x)*4;
+        if(!isBg(i)){ left=x; break leftScan; }
+      }
+    }
+    // right
+    rightScan:
+    for(let x=w-1;x>=0;x-=step){
+      for(let y=top;y<=bottom;y+=step){
+        const i=(y*w+x)*4;
+        if(!isBg(i)){ right=x; break rightScan; }
+      }
+    }
+
+    // If nothing found, return original
+    if(right<=left || bottom<=top){
+      return {canvas: imgCanvas, w, h};
+    }
+
+    // Expand bounds slightly to avoid cutting 1px lines
+    left = Math.max(0, left-2);
+    top = Math.max(0, top-2);
+    right = Math.min(w-1, right+2);
+    bottom = Math.min(h-1, bottom+2);
+
+    const cw = right-left+1;
+    const ch = bottom-top+1;
+
+    const out = document.createElement('canvas');
+    out.width = cw;
+    out.height = ch;
+    out.getContext('2d').drawImage(imgCanvas, left, top, cw, ch, 0, 0, cw, ch);
+    return {canvas: out, w: cw, h: ch};
+  }
+
+  function imageToCanvas(img, w, h){
+    const c=document.createElement('canvas');
+    c.width=w; c.height=h;
+    c.getContext('2d').drawImage(img,0,0);
+    return c;
+  }
+
   mergeBtn.onclick=async()=>{
     warnEl.textContent='';
 
     const gap=Math.max(0,parseInt(gapEl.value||'0',10));
-    const bg=safeParseColor((bgEl.value||'#ffffff').trim());
+    const bgInput=(bgEl.value||'#ffffff').trim();
+    const bg = safeParseColor(bgInput);
     const cap4k=!!cap4kEl.checked;
     const crisp=!!crispTextEl.checked;
+    const autoTrim=!!autoTrimEl.checked;
+    const tol=Math.max(0,Math.min(40,parseInt(trimTolEl.value||'12',10)));
+    const align=alignEl.value;
 
-    // Determine output width:
-    // - widest original
-    // - but if cap4k and widest > 4K, we downscale ALL by same factor to 4K
+    // global downscale to 4K cap (downscale only)
     const widestOrig=Math.max(...items.map(i=>i.w));
-    const globalDown = (cap4k && widestOrig > MAX_4K) ? (MAX_4K / widestOrig) : 1;
+    const globalDown = (cap4k && widestOrig > MAX_4K) ? (MAX_4K / widestOrig) : 1; // <=1
 
-    // planned sizes (NEVER upscale)
-    const planned = items.map(it=>{
-      const s = globalDown; // <= 1 always
-      return {
-        ...it,
-        dw: Math.round(it.w * s),
-        dh: Math.round(it.h * s)
-      };
+    // Prepare per-image canvases (optionally trimmed)
+    const prepared = items.map(it=>{
+      const dw = Math.round(it.w * globalDown);
+      const dh = Math.round(it.h * globalDown);
+
+      // draw scaled into a canvas
+      const base = document.createElement('canvas');
+      base.width = dw; base.height = dh;
+      const bctx = base.getContext('2d');
+
+      const scalingHappens = (globalDown !== 1);
+      bctx.imageSmoothingEnabled = crisp ? scalingHappens : true;
+      bctx.imageSmoothingQuality = 'high';
+      bctx.drawImage(it.img, 0, 0, dw, dh);
+
+      if(!autoTrim){
+        return {canvas: base, w: dw, h: dh};
+      }
+      return trimToContent(base, bgInput, tol);
     });
 
-    const outW = Math.max(...planned.map(p=>p.dw)); // auto-fit: no extra right space
-    const outH = planned.reduce((sum,p)=>sum+p.dh,0) + gap*(planned.length-1);
+    const outW = Math.max(...prepared.map(p=>p.w));
+    const outH = prepared.reduce((sum,p)=>sum+p.h,0) + gap*(prepared.length-1);
 
-    // Safety downscale if extremely huge (rare)
+    // safety downscale if too huge
     let safety=1;
     const mp=(outW*outH)/1_000_000;
     if(mp>SAFE_MP) safety=Math.sqrt(SAFE_MP/mp);
 
-    canvas.width = Math.max(1, Math.floor(outW*safety));
-    canvas.height = Math.max(1, Math.floor(outH*safety));
+    const finalW = Math.max(1, Math.floor(outW*safety));
+    const finalH = Math.max(1, Math.floor(outH*safety));
 
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.fillStyle=bg;
-    ctx.fillRect(0,0,canvas.width,canvas.height);
+    exportCanvas.width = finalW;
+    exportCanvas.height = finalH;
 
-    // “Crisp text”: if we are NOT scaling (globalDown==1 and safety==1), disable smoothing entirely
+    ectx.setTransform(1,0,0,1,0,0);
+    ectx.fillStyle = bg;
+    ectx.fillRect(0,0,exportCanvas.width,exportCanvas.height);
+
     const scalingHappens = (globalDown !== 1) || (safety !== 1);
-    ctx.imageSmoothingEnabled = crisp ? scalingHappens : true;
-    ctx.imageSmoothingQuality = 'high';
-
-    ctx.scale(safety,safety);
+    ectx.imageSmoothingEnabled = crisp ? scalingHappens : true;
+    ectx.imageSmoothingQuality = 'high';
+    ectx.scale(safety, safety);
 
     let y=0;
-    for(const p of planned){
-      ctx.drawImage(p.img, 0, Math.round(y), p.dw, p.dh); // left aligned, pixel-snapped y
-      y += p.dh + gap;
+    for(const p of prepared){
+      let x=0;
+      if(align==='center') x = Math.floor((outW - p.w)/2);
+      if(align==='right') x = Math.floor(outW - p.w);
+      ectx.drawImage(p.canvas, x, Math.round(y));
+      y += p.h + gap;
     }
-    ctx.setTransform(1,0,0,1,0,0);
+    ectx.setTransform(1,0,0,1,0,0);
 
+    // retina preview
+    renderPreviewFromExport(finalW, finalH);
+
+    // export blob
     if(lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
-    const blob = await new Promise(res=>canvas.toBlob(res,'image/png'));
+    const blob = await new Promise(res=>exportCanvas.toBlob(res,'image/png'));
     if(!blob){ warnEl.textContent='Export failed. Try fewer images.'; return; }
     lastBlobUrl = URL.createObjectURL(blob);
 
     openBtn.disabled=false;
-
     if(!navigator.clipboard || !window.ClipboardItem){
       copyBtn.disabled=true; copyBtn.textContent='Copy not supported';
     }else{
       copyBtn.disabled=false; copyBtn.textContent='Copy';
     }
 
-    const mpFinal=(canvas.width*canvas.height)/1_000_000;
-    statusEl.textContent=`Merged: ${canvas.width} × ${canvas.height}px (${mpFinal.toFixed(1)} MP)`;
+    const mpFinal=(finalW*finalH)/1_000_000;
+    statusEl.textContent=`Merged: ${finalW} × ${finalH}px (${mpFinal.toFixed(1)} MP)`;
     const msgs=[];
+    if(autoTrim) msgs.push('Auto-trim enabled (content aligned).');
     if(globalDown!==1) msgs.push('Downscaled to 4K cap.');
     if(safety!==1) msgs.push('Safety downscale applied.');
-    if(!msgs.length) msgs.push('No scaling applied (max sharpness).');
     warnEl.textContent=msgs.join(' ');
   };
 
   copyBtn.onclick=async()=>{
     try{
       if(!navigator.clipboard || !window.ClipboardItem) return;
-      const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
+      const blob=await new Promise(res=>exportCanvas.toBlob(res,'image/png'));
       await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
       warnEl.textContent='Copied ✅';
       setTimeout(()=>warnEl.textContent='',1500);
