@@ -14,18 +14,22 @@
   .sub{margin-top:6px;font-size:13px;color:#555}
   .wrap{max-width:1100px;margin:16px auto;padding:0 16px 24px;display:grid;grid-template-columns:360px 1fr;gap:16px}
   @media(max-width:980px){.wrap{grid-template-columns:1fr}}
+
   .card{background:#fff;border:1px solid #e7e7e7;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.04);overflow:hidden}
   .card h2{margin:0;font-size:14px;padding:12px;border-bottom:1px solid #eee;background:#fcfcfc}
   .content{padding:12px}
+
   .drop{border:2px dashed #cfcfcf;border-radius:12px;padding:14px;background:#fbfbfb;text-align:center;min-height:120px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center}
   .drop.dragover{border-color:#111;background:#f3f3f3}
+
   .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
   button{border:1px solid #ddd;background:#fff;padding:9px 10px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px}
   button.primary{background:#111;color:#fff;border-color:#111}
   button:disabled{opacity:.5;cursor:not-allowed}
+
   label{display:block;font-size:12px;color:#444;margin-top:10px}
   input[type="number"], input[type="text"]{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:10px;border:1px solid #ddd;font-size:13px;margin-top:6px}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
   .list{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto;margin-top:8px}
   .item{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;border:1px solid #eee;border-radius:12px;padding:8px}
   .thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;background:#f0f0f0;border:1px solid #eee}
@@ -33,13 +37,14 @@
   .meta b{display:block;color:#111;font-size:13px;margin-bottom:2px}
   .actions{display:flex;gap:6px}
   .actions button{padding:6px 8px;border-radius:10px;font-size:12px}
+
   .status{font-size:12px;color:#555}
   .note{font-size:12px;color:#666;margin-top:10px;line-height:1.35}
+
   .canvasWrap{margin-top:10px;border:1px solid #eee;border-radius:12px;overflow:auto;background:#fff;max-height:72vh}
   canvas{display:block;max-width:100%;height:auto}
+
   .kbd{font-family:ui-monospace,Menlo,Consolas,monospace;border:1px solid #ddd;border-bottom-width:2px;border-radius:8px;padding:2px 6px;background:#fff;font-size:12px}
-  .toggleRow{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
-  .toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:#444}
   .pill{display:inline-block;font-size:11px;padding:2px 8px;border:1px solid #e7e7e7;border-radius:999px;background:#fbfbfb;color:#555}
 </style>
 </head>
@@ -50,7 +55,10 @@
     <img src="ascend-logo.png" alt="Ascend Logo" class="logo">
     <div>
       <h1>Ascend Image Merger</h1>
-      <div class="sub">Paste with <span class="kbd">Ctrl</span>+<span class="kbd">V</span>, merge vertically in HD (with 4K-safe output).</div>
+      <div class="sub">
+        Always 4K width (3840px), vertical merge. Paste with <span class="kbd">Ctrl</span>+<span class="kbd">V</span>.
+        <span class="pill">Never upscales smaller images</span>
+      </div>
     </div>
   </div>
 </header>
@@ -72,47 +80,22 @@
       <label>Images</label>
       <div id="list" class="list"></div>
 
-      <div class="row">
-        <div>
-          <label>Gap (px)</label>
-          <input id="gap" type="number" min="0" value="0">
-        </div>
-        <div>
-          <label>Background</label>
-          <input id="bg" type="text" value="#ffffff">
-        </div>
-      </div>
+      <label>Gap (px)</label>
+      <input id="gap" type="number" min="0" step="1" value="0">
 
-      <div class="row">
-        <div>
-          <label>Output scale</label>
-          <input id="scale" type="number" min="1" step="1" value="1">
-        </div>
-        <div>
-          <label>Max width (px) <span class="pill">4K default</span></label>
-          <input id="maxWidth" type="number" min="500" step="10" value="3840">
-        </div>
-      </div>
-
-      <div class="toggleRow">
-        <label class="toggle">
-          <input id="matchWidth" type="checkbox" checked>
-          Match max width (clearer & consistent)
-        </label>
-
-        <label class="toggle">
-          <input id="safe4k" type="checkbox" checked>
-          4K safe mode (auto downscale if needed)
-        </label>
-      </div>
+      <label>Background</label>
+      <input id="bg" type="text" value="#ffffff">
 
       <div class="btnrow" style="margin-top:12px;">
-        <button id="mergeBtn" class="primary" disabled>Merge</button>
+        <button id="mergeBtn" class="primary" disabled>Merge (4K)</button>
         <button id="copyBtn" disabled>Copy</button>
         <button id="openBtn" disabled>Open</button>
       </div>
 
       <div id="warn" class="note"></div>
+      <div class="note">
+        Tip: For true sharpness, click <b>Open</b> and view at 100% zoom. The on-page preview may be scaled to fit your screen.
+      </div>
     </div>
   </section>
 
@@ -121,14 +104,14 @@
     <div class="content">
       <div id="status" class="status">Add images to start.</div>
       <div class="canvasWrap"><canvas id="canvas"></canvas></div>
-      <div class="note">
-        Tip: If your final image is huge, 4K safe mode will automatically reduce size to avoid browser limits.
-      </div>
     </div>
   </section>
 </main>
 
 <script>
+  const TARGET_W = 3840;      // always 4K width
+  const SAFE_MP = 64;         // safety cap to avoid huge canvas failures
+
   const drop = document.getElementById('drop');
   const fileInput = document.getElementById('fileInput');
   const addBtn = document.getElementById('addBtn');
@@ -137,10 +120,6 @@
 
   const gapEl = document.getElementById('gap');
   const bgEl = document.getElementById('bg');
-  const scaleEl = document.getElementById('scale');
-  const maxWidthEl = document.getElementById('maxWidth');
-  const matchWidthEl = document.getElementById('matchWidth');
-  const safe4kEl = document.getElementById('safe4k');
 
   const mergeBtn = document.getElementById('mergeBtn');
   const copyBtn = document.getElementById('copyBtn');
@@ -181,6 +160,7 @@
 
     clearBtn.disabled = items.length === 0;
     mergeBtn.disabled = items.length < 2;
+
     statusEl.textContent = items.length ? `${items.length} image(s) loaded.` : 'Add images to start.';
   }
 
@@ -267,71 +247,36 @@
   };
   clearBtn.onclick = clearAll;
 
-  // ---- MERGE (Vertical Only, Clearer + 4K safe) ----
+  // ---- MERGE (Vertical Only, ALWAYS 4K WIDTH, NEVER UPSCALE) ----
   mergeBtn.onclick = async () => {
     warnEl.textContent = '';
 
     const gap = Math.max(0, parseInt(gapEl.value || '0', 10));
-    const scale = Math.max(1, parseInt(scaleEl.value || '1', 10));
     const bg = safeParseColor((bgEl.value || '#ffffff').trim());
 
-    const matchWidth = !!matchWidthEl.checked;
-    const safe4k = !!safe4kEl.checked;
-
-    const maxOutWidth = Math.max(500, parseInt(maxWidthEl.value || '3840', 10));
-
-    // Base target width: widest image
-    const baseMaxW = Math.max(...items.map(i => i.w));
-
-    // If matching width, all images scale to baseMaxW
-    // Otherwise they keep original size (but canvas width still equals max original width)
-    const targetW = matchWidth ? baseMaxW : baseMaxW;
-
-    // Plan draw sizes BEFORE safety scaling
+    // Plan: downscale only if image wider than 4K. Never upscale.
     const planned = items.map(it => {
-      if (!matchWidth) return { ...it, dw: it.w, dh: it.h };
-      const s = targetW / it.w;
-      return { ...it, dw: Math.round(it.w * s), dh: Math.round(it.h * s) };
+      const down = it.w > TARGET_W ? (TARGET_W / it.w) : 1;
+      const dw = Math.round(it.w * down);
+      const dh = Math.round(it.h * down);
+      return { ...it, dw, dh, down };
     });
 
-    let outW = Math.max(...planned.map(p => p.dw));
-    let outH = planned.reduce((sum, p) => sum + p.dh, 0) + gap * (planned.length - 1);
+    const outW = TARGET_W;
+    const outH = planned.reduce((sum, p) => sum + p.dh, 0) + gap * (planned.length - 1);
 
-    // Apply user scale first (HD multiplier)
-    let scaledW = Math.round(outW * scale);
-    let scaledH = Math.round(outH * scale);
-
-    // ---- 4K SAFE GUARDRAILS ----
-    // 1) Keep width under maxOutWidth (default 3840)
-    // 2) Keep total pixels under a safe megapixel budget (prevents canvas failures)
-    //    64 MP is usually safer across devices/browsers.
-    const SAFE_MP = 64;
+    // Safety: if total megapixels too high, downscale everything (including the 4K canvas)
     let safetyFactor = 1;
-
-    if (safe4k) {
-      if (scaledW > maxOutWidth) {
-        safetyFactor = Math.min(safetyFactor, maxOutWidth / scaledW);
-      }
-
-      const mp = (scaledW * scaledH) / 1_000_000;
-      if (mp > SAFE_MP) {
-        const f = Math.sqrt(SAFE_MP / mp);
-        safetyFactor = Math.min(safetyFactor, f);
-      }
+    const mp = (outW * outH) / 1_000_000;
+    if (mp > SAFE_MP) {
+      safetyFactor = Math.sqrt(SAFE_MP / mp);
     }
 
-    if (safetyFactor < 1) {
-      scaledW = Math.floor(scaledW * safetyFactor);
-      scaledH = Math.floor(scaledH * safetyFactor);
-    }
+    const finalW = Math.max(1, Math.floor(outW * safetyFactor));
+    const finalH = Math.max(1, Math.floor(outH * safetyFactor));
 
-    // Final draw scale relative to layout units
-    // (layout -> user scale -> safety downscale)
-    const finalScale = scale * (safetyFactor < 1 ? safetyFactor : 1);
-
-    // Canvas size
-    canvas.width = Math.max(1, scaledW);
-    canvas.height = Math.max(1, scaledH);
+    canvas.width = finalW;
+    canvas.height = finalH;
 
     // Background
     ctx.setTransform(1,0,0,1,0,0);
@@ -342,8 +287,8 @@
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    // Work in layout units, then apply finalScale
-    ctx.scale(finalScale, finalScale);
+    // Draw in 4K layout units, then apply safetyFactor
+    ctx.scale(safetyFactor, safetyFactor);
 
     let y = 0;
     for (const p of planned) {
@@ -352,14 +297,13 @@
       y += p.dh + gap;
     }
 
-    // Reset transform
     ctx.setTransform(1,0,0,1,0,0);
 
     // Export blob for open/copy
     if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
     const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
     if (!blob) {
-      warnEl.textContent = 'Export failed. Try lower Output scale or disable Match max width.';
+      warnEl.textContent = 'Export failed. Try fewer images or smaller originals.';
       return;
     }
     lastBlobUrl = URL.createObjectURL(blob);
@@ -376,16 +320,15 @@
     }
 
     const mpFinal = (canvas.width * canvas.height) / 1_000_000;
-    statusEl.textContent = `Merged: ${canvas.width} × ${canvas.height}px (${mpFinal.toFixed(1)} MP)`;
+    statusEl.textContent = `Merged: ${canvas.width} × ${canvas.height}px (${mpFinal.toFixed(1)} MP) — 4K width`;
 
-    if (safetyFactor < 1) {
-      warnEl.textContent =
-        `4K safe mode applied: output auto-downscaled to stay within limits (max width ${maxOutWidth}px / ~${SAFE_MP}MP).`;
-    } else if (matchWidth) {
-      warnEl.textContent = 'Match max width enabled: images were resized consistently for a cleaner merge.';
-    } else {
-      warnEl.textContent = '';
-    }
+    const anyKeptNative = planned.some(p => p.down === 1 && p.w < TARGET_W);
+    const anyDownscaled = planned.some(p => p.down < 1);
+    const msgs = [];
+    if (anyKeptNative) msgs.push('Smaller images were NOT upscaled (kept crisp).');
+    if (anyDownscaled) msgs.push('Wider-than-4K images were downscaled to 4K.');
+    if (safetyFactor < 1) msgs.push(`Safety downscale applied (~${SAFE_MP}MP cap).`);
+    warnEl.textContent = msgs.join(' ');
   };
 
   copyBtn.onclick = async () => {
