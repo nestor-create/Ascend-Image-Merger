@@ -40,7 +40,6 @@
 
   .status{font-size:12px;color:#555}
   .note{font-size:12px;color:#666;margin-top:10px;line-height:1.35}
-
   .canvasWrap{margin-top:10px;border:1px solid #eee;border-radius:12px;overflow:auto;background:#fff;max-height:72vh}
   canvas{display:block;max-width:100%;height:auto}
 
@@ -57,7 +56,7 @@
       <h1>Ascend Image Merger</h1>
       <div class="sub">
         Always 4K width (3840px), vertical merge. Paste with <span class="kbd">Ctrl</span>+<span class="kbd">V</span>.
-        <span class="pill">Never upscales smaller images</span>
+        <span class="pill">Left-aligned for perfect line-up</span>
       </div>
     </div>
   </div>
@@ -94,7 +93,7 @@
 
       <div id="warn" class="note"></div>
       <div class="note">
-        Tip: For true sharpness, click <b>Open</b> and view at 100% zoom. The on-page preview may be scaled to fit your screen.
+        Tip: Click <b>Open</b> and view at 100% zoom for the true exported quality.
       </div>
     </div>
   </section>
@@ -160,7 +159,6 @@
 
     clearBtn.disabled = items.length === 0;
     mergeBtn.disabled = items.length < 2;
-
     statusEl.textContent = items.length ? `${items.length} image(s) loaded.` : 'Add images to start.';
   }
 
@@ -247,7 +245,7 @@
   };
   clearBtn.onclick = clearAll;
 
-  // ---- MERGE (Vertical Only, ALWAYS 4K WIDTH, NEVER UPSCALE) ----
+  // ---- MERGE (Vertical Only, ALWAYS 4K WIDTH, LEFT-ALIGNED, NEVER UPSCALE) ----
   mergeBtn.onclick = async () => {
     warnEl.textContent = '';
 
@@ -265,12 +263,10 @@
     const outW = TARGET_W;
     const outH = planned.reduce((sum, p) => sum + p.dh, 0) + gap * (planned.length - 1);
 
-    // Safety: if total megapixels too high, downscale everything (including the 4K canvas)
+    // Safety: cap megapixels
     let safetyFactor = 1;
     const mp = (outW * outH) / 1_000_000;
-    if (mp > SAFE_MP) {
-      safetyFactor = Math.sqrt(SAFE_MP / mp);
-    }
+    if (mp > SAFE_MP) safetyFactor = Math.sqrt(SAFE_MP / mp);
 
     const finalW = Math.max(1, Math.floor(outW * safetyFactor));
     const finalH = Math.max(1, Math.floor(outH * safetyFactor));
@@ -283,8 +279,9 @@
     ctx.fillStyle = bg;
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // High-quality scaling
-    ctx.imageSmoothingEnabled = true;
+    // Only enable smoothing when scaling is happening
+    const scalingHappens = (safetyFactor !== 1) || planned.some(p => p.down !== 1);
+    ctx.imageSmoothingEnabled = scalingHappens;
     ctx.imageSmoothingQuality = 'high';
 
     // Draw in 4K layout units, then apply safetyFactor
@@ -292,8 +289,11 @@
 
     let y = 0;
     for (const p of planned) {
-      const x = Math.floor((outW - p.dw) / 2);
-      ctx.drawImage(p.img, x, y, p.dw, p.dh);
+      // LEFT ALIGN for perfect vertical line-up
+      const x = 0;
+
+      // Snap to whole pixels to avoid 1px “line drift”
+      ctx.drawImage(p.img, Math.round(x), Math.round(y), p.dw, p.dh);
       y += p.dh + gap;
     }
 
